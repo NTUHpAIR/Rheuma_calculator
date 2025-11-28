@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SLEDAI-2K & LLDAS Calculator</title>
+    <style>
+        body { font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; background-color: #f4f7f6; color: #333; padding-top: 240px; }
+        .container { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h1 { color: #2c3e50; text-align: center; font-size: 1.5rem; margin-bottom: 5px; }
+        .subtitle { text-align: center; color: #666; font-size: 0.9rem; margin-bottom: 20px; }
+        
+        /* Fixed Header Score Box */
+        .score-box-wrapper { position: fixed; top: 0; left: 0; right: 0; background: #2c3e50; color: white; z-index: 1000; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
+        .score-box-inner { max-width: 800px; margin: 0 auto; padding: 10px 15px; }
+        
+        .score-row { display: flex; justify-content: space-around; align-items: center; padding-bottom: 8px; }
+        .score-item { text-align: center; }
+        .score-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px; opacity: 0.8; }
+        .score-val { font-size: 1.6rem; font-weight: bold; line-height: 1.1; }
+        
+        /* Sub-bars in header */
+        .status-row { display: flex; gap: 5px; margin-top: 5px; }
+        .status-bar { flex: 1; padding: 5px; text-align: center; font-size: 0.85rem; font-weight: bold; border-radius: 4px; transition: all 0.3s; }
+        .severity-bar { background: rgba(255,255,255,0.1); }
+        .lldas-bar { background: #6c757d; color: #ccc; } 
+        .lldas-met { background: #28a745; color: white; box-shadow: 0 0 10px rgba(40, 167, 69, 0.5); }
+        
+        /* Worsening Warning */
+        .flare-alert { background-color: #dc3545; color: white; text-align: center; padding: 5px; font-weight: bold; font-size: 0.9rem; display: none; animation: flash 2s infinite; }
+        @keyframes flash { 0% { opacity: 1; } 50% { opacity: 0.8; } 100% { opacity: 1; } }
+
+        /* Prev Score Input */
+        .prev-score-row { border-top: 1px solid rgba(255,255,255,0.2); margin-top: 8px; padding-top: 8px; display: flex; align-items: center; justify-content: center; gap: 10px; font-size: 0.9rem; }
+        .prev-input { width: 50px; padding: 4px; border-radius: 4px; border: none; text-align: center; font-weight: bold; color: #2c3e50; }
+
+        /* Section Separator */
+        .section-header { margin-top: 30px; margin-bottom: 10px; padding-bottom: 5px; border-bottom: 2px solid #2c3e50; color: #2c3e50; font-size: 1.2rem; font-weight: bold; }
+
+        /* Categories */
+        .category { margin-top: 20px; padding: 10px; background-color: #e9ecef; border-left: 5px solid #2c3e50; font-weight: bold; color: #2c3e50; }
+        .category-sub { font-size: 0.85rem; font-weight: normal; color: #555; margin-left: 10px; }
+
+        /* LLDAS Section */
+        .lldas-section { background-color: #f8f9fa; border: 1px solid #28a745; border-radius: 6px; padding: 10px; margin-top: 25px; }
+        .check-item { display: flex; align-items: center; padding: 8px 0; border-bottom: 1px dashed #ced4da; }
+        .check-item:last-child { border-bottom: none; }
+        .check-item input { transform: scale(1.3); margin-right: 12px; cursor: pointer; }
+        .check-item label { cursor: pointer; font-size: 0.95rem; color: #495057; }
+        
+        /* Items */
+        .item { display: flex; align-items: start; padding: 12px; border-bottom: 1px solid #eee; }
+        .item:last-child { border-bottom: none; }
+        .item input[type="checkbox"] { margin-top: 5px; transform: scale(1.5); margin-right: 15px; cursor: pointer; }
+        .item label { cursor: pointer; flex-grow: 1; }
+        .desc { font-size: 0.85rem; color: #666; display: block; margin-top: 4px; line-height: 1.4; }
+
+        /* PGA Specific Styles */
+        .pga-container { display: flex; justify-content: space-between; padding: 10px; flex-wrap: wrap; gap: 10px; }
+        .pga-option { flex: 1; min-width: 80px; text-align: center; position: relative; }
+        .pga-option input { opacity: 0; position: absolute; width: 100%; height: 100%; cursor: pointer; }
+        .pga-btn { display: block; padding: 10px; border: 2px solid #ddd; border-radius: 8px; font-weight: bold; color: #555; transition: all 0.2s; cursor: pointer; }
+        .pga-option input:checked + .pga-btn { background-color: #2c3e50; color: white; border-color: #2c3e50; transform: translateY(-2px); box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .pga-desc { font-size: 0.75rem; display: block; font-weight: normal; margin-top: 2px; }
+
+        /* Actions */
+        .actions { text-align: center; margin-top: 30px; padding-bottom: 10px; }
+        button { background-color: #007bff; color: white; border: none; padding: 15px 30px; font-size: 1rem; border-radius: 50px; cursor: pointer; transition: background 0.3s; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        button:hover { background-color: #0056b3; }
+        button:active { transform: translateY(2px); }
+        
+        #copyArea { width: 100%; height: 100px; margin-top: 20px; font-family: monospace; padding: 10px; border: 1px solid #ddd; display: none; }
+        .badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; color: white; margin-left: 5px; }
+        
+        /* Footer Reference */
+        .footer-ref { font-size: 0.75rem; color: #888; margin-top: 40px; border-top: 1px solid #eee; padding-top: 15px; line-height: 1.5; background-color: #f9f9f9; padding: 15px; border-radius: 6px; }
+    </style>
+</head>
+<body>
+
+<nav style="background: #2c3e50; padding: 10px; text-align: center; margin-bottom: 20px;">
+    <a href="index.html" style="color: white; text-decoration: none; margin: 0 15px; font-weight: bold;">SLEDAI 計算器</a>
+    
+    <a href="guide.html" style="color: white; text-decoration: none; margin: 0 15px; font-weight: bold;">使用說明 & 參考文獻</a>
+    
+    <a href="contact.html" style="color: white; text-decoration: none; margin: 0 15px; font-weight: bold;">聯絡我們</a>
+</nav>
+
+<div class="score-box-wrapper">
+    <div id="flareAlert" class="flare-alert">⚠️ Clinically Meaningful Worsening (Rise ≥ 3)</div>
+    <div class="score-box-inner">
+        <div class="score-row">
+            <div class="score-item">
+                <div class="score-label">Total SLEDAI</div>
+                <div id="totalScore" class="score-val">0</div>
+            </div>
+            <div style="width: 1px; height: 30px; background: rgba(255,255,255,0.3);"></div>
+            <div class="score-item">
+                <div class="score-label">Clinical</div>
+                <div id="clinicalScoreDisplay" class="score-val">0</div>
+            </div>
+            <div style="width: 1px; height: 30px; background: rgba(255,255,255,0.3);"></div>
+            <div class="score-item">
+                <div class="score-label">PGA</div>
+                <div id="pgaDisplay" class="score-val" style="font-size: 1.4rem;">0<br><span style="font-size:0.7rem; font-weight:normal; vertical-align: middle;">None</span></div>
+            </div>
+        </div>
+        
+        <div class="status-row">
+            <div id="severityBar" class="status-bar severity-bar">Remission</div>
+            <div id="lldasBar" class="status-bar lldas-bar">LLDAS: Not Met</div>
+        </div>
+
+        <div class="prev-score-row">
+            <label for="prevScore">Prev. Score (Optional):</label>
+            <input type="number" id="prevScore" class="prev-input" placeholder="-" min="0" oninput="updateUI()">
+            <span id="changeDisplay" style="display:none; margin-left:5px;">Change: <span id="scoreChangeValue">0</span></span>
+        </div>
+    </div>
+</div>
+
+<div class="container">
+    <h1>SLEDAI-2K & LLDAS 評估工具</h1>
+    <p class="subtitle">Check box if present in the preceding 10 days</p>
+
+    <form id="sledaiForm">
+        
+        <div class="category" style="border-left-color: #6c757d;">Physician's Global Assessment (PGA)</div>
+        <div class="pga-container">
+            <div class="pga-option">
+                <input type="radio" name="pga" value="0" id="pga0" checked onchange="updateUI()">
+                <label class="pga-btn" for="pga0">0<span class="pga-desc">None</span></label>
+            </div>
+            <div class="pga-option">
+                <input type="radio" name="pga" value="1" id="pga1" onchange="updateUI()">
+                <label class="pga-btn" for="pga1">1<span class="pga-desc">Mild</span></label>
+            </div>
+            <div class="pga-option">
+                <input type="radio" name="pga" value="2" id="pga2" onchange="updateUI()">
+                <label class="pga-btn" for="pga2">2<span class="pga-desc">Mod</span></label>
+            </div>
+            <div class="pga-option">
+                <input type="radio" name="pga" value="3" id="pga3" onchange="updateUI()">
+                <label class="pga-btn" for="pga3">3<span class="pga-desc">Severe</span></label>
+            </div>
+        </div>
+
+        <div class="section-header">SLEDAI-2000 評估項目</div>
+
+        <div class="category">神經系統 & 血管 (8分)</div>
+        <div id="group8"></div>
+
+        <div class="category">腎臟 & 肌肉骨骼 (4分)</div>
+        <div id="group4"></div>
+
+        <div class="category">皮膚, 漿膜 & 免疫 (2分)</div>
+        <div id="group2"></div>
+
+        <div class="category">血液 & 全身性 (1分)</div>
+        <div id="group1"></div>
+
+        <div class="lldas-section">
+            <div style="font-weight:bold; color:#28a745; margin-bottom:10px;">LLDAS Additional Criteria (Required for LLDAS)</div>
+            <div class="check-item">
+                <input type="checkbox" id="noNewActivity" onchange="updateUI()">
+                <label for="noNewActivity">No new disease activity compared with previous visit</label>
+            </div>
+            <div class="check-item">
+                <input type="checkbox" id="lowPrednisone" onchange="updateUI()">
+                <label for="lowPrednisone">Prednisone ≤7.5 mg/day (or ≤0.15 mg/kg/day)</label>
+            </div>
+        </div>
+
+    </form>
+
+    <div class="actions">
+        <button onclick="copyToClipboard()">📋 複製結果 (Copy for EMR)</button>
+        <p id="msg" style="color: green; margin-top: 10px; min-height: 20px; font-weight: bold;"></p>
+    </div>
+    
+    <div class="footer-ref">
+        <strong>References:</strong><br>
+        1. <strong>SLEDAI-2K & Severity:</strong> Suszek D, et al. <em>Reumatologia</em> 2024;62(3):187.<br>
+        2. <strong>LLDAS Definition:</strong> Franklyn K, et al. <em>Ann Rheum Dis</em> 2016;75:1615-1621.
+    </div>
+
+    <textarea id="copyArea"></textarea>
+</div>
+
+<script>
+    const items = [
+        { id: "seizure", name: "Seizure", score: 8, group: "group8", desc: "Recent onset. Exclude metabolic, infectious or drug cause." },
+        { id: "psychosis", name: "Psychosis", score: 8, group: "group8", desc: "Altered ability to function... hallucinations, incoherence. Exclude uremia/drugs." },
+        { id: "obs", name: "Organic Brain Syndrome", score: 8, group: "group8", desc: "Altered mental function... impaired orientation/memory. Exclude metabolic/drug causes." },
+        { id: "visual", name: "Visual Disturbance", score: 8, group: "group8", desc: "Retinal changes (cytoid bodies, hemorrhages) or optic neuritis." },
+        { id: "cranial", name: "Cranial Nerve Disorder", score: 8, group: "group8", desc: "New onset of sensory or motor neuropathy involving cranial nerves." },
+        { id: "headache", name: "Lupus Headache", score: 8, group: "group8", desc: "Severe persistent headache, non-responsive to narcotic analgesia." },
+        { id: "cva", name: "CVA (New onset)", score: 8, group: "group8", desc: "New onset cerebrovascular accident. Exclude arteriosclerosis." },
+        { id: "vasculitis", name: "Vasculitis", score: 8, group: "group8", desc: "Ulceration, gangrene, tender nodules, splinter hemorrhages, or biopsy proof." },
+        
+        { id: "arthritis", name: "Arthritis", score: 4, group: "group4", desc: ">2 joints with pain and signs of inflammation (swelling, effusion)." },
+        { id: "myositis", name: "Myositis", score: 4, group: "group4", desc: "Proximal weakness + elevated CPK/Aldolase or EMG/biopsy." },
+        { id: "casts", name: "Urinary Casts", score: 4, group: "group4", desc: "Heme-granular or RBC casts." },
+        { id: "hematuria", name: "Hematuria", score: 4, group: "group4", desc: ">5 RBC/hpf. Exclude stone, infection or other cause." },
+        { id: "proteinuria", name: "Proteinuria", score: 4, group: "group4", desc: ">0.5 gm/24h. New onset or recent increase." },
+        { id: "pyuria", name: "Pyuria", score: 4, group: "group4", desc: ">5 WBC/hpf. Exclude infection." },
+
+        { id: "rash", name: "New Rash", score: 2, group: "group2", desc: "New onset or recurrence of inflammatory type rash." },
+        { id: "alopecia", name: "Alopecia", score: 2, group: "group2", desc: "New onset or recurrence of abnormal, patchy or diffuse hair loss." },
+        { id: "ulcers", name: "Mucosal Ulcers", score: 2, group: "group2", desc: "New onset or recurrence of oral or nasal ulcerations." },
+        { id: "pleurisy", name: "Pleurisy", score: 2, group: "group2", desc: "Pleuritic chest pain with rub/effusion/thickening." },
+        { id: "pericarditis", name: "Pericarditis", score: 2, group: "group2", desc: "Pericardial pain with rub/effusion/ECG confirmation." },
+        { id: "lowcomp", name: "Low Complement", score: 2, group: "group2", desc: "Decrease in CH50, C3, or C4 below lower limit of normal." },
+        { id: "dna", name: "Increased DNA binding", score: 2, group: "group2", desc: ">25% binding by Farr assay or above normal range for testing laboratory." },
+
+        { id: "fever", name: "Fever", score: 1, group: "group1", desc: ">38°C. Exclude infectious cause." },
+        { id: "thrombocytopenia", name: "Thrombocytopenia", score: 1, group: "group1", desc: "<100,000 platelets/mm3." },
+        { id: "leukopenia", name: "Leukopenia", score: 1, group: "group1", desc: "<3,000 WBC/mm3. Exclude drug causes." }
+    ];
+
+    // Initialize UI
+    items.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'item';
+        div.innerHTML = `
+            <input type="checkbox" id="${item.id}" value="${item.score}" onchange="updateUI()">
+            <label for="${item.id}">
+                ${item.name} <span class="badge bg-${item.score}">${item.score}</span>
+                <span class="desc">${item.desc}</span>
+            </label>
+        `;
+        document.getElementById(item.group).appendChild(div);
+    });
+
+    const lldasMajorOrgans = [
+        "seizure", "psychosis", "obs", "visual", "cranial", "headache", "cva", 
+        "vasculitis", 
+        "casts", "hematuria", "proteinuria", "pyuria", 
+        "pleurisy", "pericarditis", 
+        "fever"
+    ];
+
+    function getSeverity(score) {
+        if (score === 0) return { text: "Remission", color: "#28a745" }; 
+        if (score <= 6) return { text: "Mild activity", color: "#ffc107" }; 
+        if (score <= 12) return { text: "Moderate activity", color: "#fd7e14" }; 
+        return { text: "Severe activity", color: "#dc3545" }; 
+    }
+
+    function checkLLDAS(totalScore, pgaVal) {
+        if (totalScore > 4) return false;
+        if (pgaVal > 1) return false;
+        if (!document.getElementById('noNewActivity').checked) return false;
+        if (!document.getElementById('lowPrednisone').checked) return false;
+        
+        let hasMajor = false;
+        lldasMajorOrgans.forEach(id => {
+            if (document.getElementById(id).checked) hasMajor = true;
+        });
+        if (hasMajor) return false;
+
+        return true;
+    }
+
+    function updateUI() {
+        let totalScore = 0;
+        let clinicalScore = 0;
+        
+        document.querySelectorAll('#sledaiForm input[type=checkbox]').forEach(box => {
+            if (box.id === 'noNewActivity' || box.id === 'lowPrednisone') return;
+            if (box.checked) {
+                const score = parseInt(box.value);
+                totalScore += score;
+                if (box.id !== 'lowcomp' && box.id !== 'dna') {
+                    clinicalScore += score;
+                }
+            }
+        });
+
+        document.getElementById('totalScore').innerText = totalScore;
+        document.getElementById('clinicalScoreDisplay').innerText = clinicalScore;
+
+        const prevInput = document.getElementById('prevScore').value;
+        const changeDisplay = document.getElementById('changeDisplay');
+        const scoreChangeValue = document.getElementById('scoreChangeValue');
+        const flareAlert = document.getElementById('flareAlert');
+        
+        if (prevInput !== "") {
+            const prevScore = parseInt(prevInput);
+            const change = totalScore - prevScore;
+            const sign = change > 0 ? "+" : "";
+            scoreChangeValue.innerText = `${sign}${change}`;
+            changeDisplay.style.display = "inline";
+
+            if (change >= 3) {
+                flareAlert.style.display = 'block';
+            } else {
+                flareAlert.style.display = 'none';
+            }
+        } else {
+            changeDisplay.style.display = "none";
+            flareAlert.style.display = 'none';
+        }
+
+        const severity = getSeverity(totalScore);
+        const severityBar = document.getElementById('severityBar');
+        severityBar.innerText = severity.text;
+        severityBar.style.backgroundColor = severity.color;
+        severityBar.style.color = (severity.text === "Mild activity") ? "#333" : "white";
+        
+        const pgaVal = document.querySelector('input[name="pga"]:checked').value;
+        const pgaTexts = ["None", "Mild", "Mod", "Severe"];
+        document.getElementById('pgaDisplay').innerHTML = `${pgaVal}<br><span style="font-size:0.7rem; font-weight:normal;">${pgaTexts[pgaVal]}</span>`;
+
+        const isLLDAS = checkLLDAS(totalScore, parseInt(pgaVal));
+        const lldasBar = document.getElementById('lldasBar');
+        if (isLLDAS) {
+            lldasBar.innerText = "LLDAS: MET";
+            lldasBar.className = "status-bar lldas-met";
+        } else {
+            lldasBar.innerText = "LLDAS: Not Met";
+            lldasBar.className = "status-bar lldas-bar";
+        }
+    }
+
+    function copyToClipboard() {
+        let totalScore = 0;
+        const positiveItems = [];
+
+        // Identify Checked SLEDAI Items
+        document.querySelectorAll('#sledaiForm input[type=checkbox]').forEach(box => {
+            if (box.id === 'noNewActivity' || box.id === 'lowPrednisone') return; // Skip LLDAS
+            if (box.checked) {
+                const item = items.find(i => i.id === box.id);
+                if (item) {
+                    totalScore += item.score;
+                    positiveItems.push(`${item.name}(${item.score})`);
+                }
+            }
+        });
+
+        const pgaVal = parseInt(document.querySelector('input[name="pga"]:checked').value);
+        const severity = getSeverity(totalScore);
+        const isLLDAS = checkLLDAS(totalScore, pgaVal);
+
+        // --- EMR Output Logic ---
+        
+        // Line 1: Date
+        let text = `Date: ${new Date().toLocaleDateString()}\n`;
+
+        // Line 2: Score + Severity
+        text += `SLEDAI-2K: ${totalScore} (${severity.text})\n`;
+
+        // Line 3: Positive Findings
+        if (positiveItems.length > 0) {
+            text += `Positive Findings: ${positiveItems.join(', ')}\n`;
+        } else {
+            text += `Positive Findings: None\n`;
+        }
+
+        // Line 4: Trend (if prev score exists)
+        const prevInput = document.getElementById('prevScore').value;
+        if (prevInput !== "") {
+            const prevScore = parseInt(prevInput);
+            const change = totalScore - prevScore;
+            const sign = change > 0 ? "+" : "";
+            let trendText = `Trend: ${sign}${change} points vs previous`;
+            if (change >= 3) {
+                trendText += ` (⚠️ Clinically Meaningful Worsening)`;
+            }
+            text += `${trendText}\n`;
+        }
+        
+        // Line 5: LLDAS
+        text += `LLDAS: ${isLLDAS ? "MET" : "NOT MET"}\n`;
+
+        // Copy process
+        const textArea = document.getElementById('copyArea');
+        textArea.value = text;
+        textArea.style.display = 'block';
+        textArea.select();
+        document.execCommand('copy');
+        textArea.style.display = 'none';
+
+        const msgBtn = document.getElementById('msg');
+        msgBtn.innerText = "已複製！(Copied)";
+        setTimeout(() => msgBtn.innerText = "", 3000);
+    }
+</script>
+
+</body>
+</html>
